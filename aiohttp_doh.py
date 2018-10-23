@@ -1,6 +1,8 @@
+import asyncio
 import enum
 import json
 import socket
+from typing import List
 
 from aiohttp.abc import AbstractResolver
 from aiohttp.client import ClientSession as CS
@@ -23,17 +25,17 @@ class DNSOverHTTPSResolver(AbstractResolver):
     def __init__(
         self,
         *,
-        endpoint: str,
+        endpoints: List[str],
         json_loads=json.loads,
         resolver_class=None,
     ) -> None:
-        self.endpoint = endpoint
+        self.endpoints = endpoints
         self.json_loads = json_loads
         if resolver_class is None:
             resolver_class = DefaultResolver
         self.resolveer_class = resolver_class
-
-    async def resolve(self, host, port=0, family=socket.AF_INET):
+    
+    async def _resolve(self, endpoint: str, host, port, family):
         if family == socket.AF_INET6:
             record_type = RecordType.AAAA
         else:
@@ -49,7 +51,7 @@ class DNSOverHTTPSResolver(AbstractResolver):
         connector = TCPConnector(resolver=resolver)
     
         async with CS(connector=connector) as session:
-            async with session.get(self.endpoint, params=params) as resp:
+            async with session.get(endpoint, params=params) as resp:
                 data = self.json_loads(await resp.text())
 
         connector.close()
@@ -72,6 +74,19 @@ class DNSOverHTTPSResolver(AbstractResolver):
             ) and r['data']
         ]
 
+    async def resolve(self, host, port=0, family=socket.AF_INET):
+        tasks = [
+            self._resolve(endpoint, host, port, family)
+            for endpoint in self.endpoints
+        ]
+        done, pending = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for p in pending:
+            p.cancel()
+        return list(done)[0].result()
+
     async def close(self):
         pass
 
@@ -79,11 +94,17 @@ class DNSOverHTTPSResolver(AbstractResolver):
 def ClientSession(*args, **kwargs) -> CS:  # noqa
     """Shortcut of aiohttp.ClientSession and DNSOverHTTPSResolver"""
 
-    endpoint = kwargs.pop('endpoint', 'https://dns.google.com/resolve')
+    endpoints = kwargs.pop(
+        'endpoints',
+        [
+            'https://dns.google.com/resolve',
+            'https://cloudflare-dns.com/dns-query',
+        ],
+    )
     json_loads = kwargs.pop('json_loads', json.loads)
     resolver_class = kwargs.pop('resolver_class', None)
     resolver = DNSOverHTTPSResolver(
-        endpoint=endpoint,
+        endpoints=endpoints,
         json_loads=json_loads,
         resolver_class=resolver_class,
     )
