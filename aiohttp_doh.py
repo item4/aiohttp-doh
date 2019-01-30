@@ -87,7 +87,7 @@ class DNSOverHTTPSResolver(AbstractResolver):
             p.cancel()
         return list(done)[0].result()
 
-    async def close(self):
+    def close(self):
         pass
 
 
