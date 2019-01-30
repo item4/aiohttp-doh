@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiohttp-doh"
-version = "0.2.0"
+version = "0.2.1"
 description = "DNS over HTTPS reslover for aiohttp"
 authors = ["Kim Jin Su <item4_hun@hotmail.com>"]
 license = "MIT"

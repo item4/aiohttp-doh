@@ -54,7 +54,7 @@ class DNSOverHTTPSResolver(AbstractResolver):
             async with session.get(endpoint, params=params) as resp:
                 data = self.json_loads(await resp.text())
 
-        connector.close()
+        await connector.close()
 
         if data['Status'] != 0:
             raise OSError("DNS lookup failed")
@@ -87,7 +87,7 @@ class DNSOverHTTPSResolver(AbstractResolver):
             p.cancel()
         return list(done)[0].result()
 
-    def close(self):
+    async def close(self):
         pass
 
 
